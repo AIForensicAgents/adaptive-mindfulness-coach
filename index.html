@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Adaptive Mindfulness Coach</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/marked@9.1.6/marked.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        sage: { 50:'#f6f7f4', 100:'#e8ebe3', 200:'#d1d7c7', 300:'#b3bea2', 400:'#95a57d', 500:'#7a8d63', 600:'#5f714d', 700:'#4a583d', 800:'#3d4834', 900:'#343d2e' },
+        warm: { 50:'#fdf8f0', 100:'#f9edda', 200:'#f2d8b4', 300:'#e9be85', 400:'#dfa054', 500:'#d88a35', 600:'#c4722a', 700:'#a35825', 800:'#834725', 900:'#6d3c22' },
+        calm: { 50:'#f0f5fa', 100:'#dce8f3', 200:'#bdd3e9', 300:'#8fb6d9', 400:'#5a93c5', 500:'#3a77af', 600:'#2d5f94', 700:'#264d78', 800:'#234264', 900:'#213854' },
+      },
+      fontFamily: { serif: ['Merriweather','Georgia','serif'], sans: ['Inter','system-ui','sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; font-size: 18px; }
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  .serif { font-family: 'Merriweather', Georgia, serif; }
+  .breathing-circle { animation: breathe 8s ease-in-out infinite; }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.15); opacity: 1; }
+  }
+  .fade-in { animation: fadeIn 0.5s ease-out; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .pulse-gentle { animation: pulseGentle 3s ease-in-out infinite; }
+  @keyframes pulseGentle { 0%,100%{box-shadow:0 0 0 0 rgba(122,141,99,0.3)} 50%{box-shadow:0 0 0 12px rgba(122,141,99,0)} }
+  .tooltip-container { position: relative; }
+  .tooltip-text { 
+    visibility: hidden; opacity: 0; transition: opacity 0.3s;
+    position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
+    background: #3d4834; color: white; padding: 8px 12px; border-radius: 8px;
+    font-size: 0.85rem; white-space: nowrap; max-width: 280px; white-space: normal; z-index: 50;
+  }
+  .tooltip-container:hover .tooltip-text, .tooltip-container:focus .tooltip-text { visibility: visible; opacity: 1; }
+  .progress-ring { transition: stroke-dashoffset 0.5s ease; }
+  input[type="range"] { -webkit-appearance: none; height: 8px; border-radius: 4px; background: #d1d7c7; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:28px; height:28px; border-radius:50%; background:#5f714d; cursor:pointer; }
+  .tab-active { border-bottom: 3px solid #5f714d; color: #4a583d; font-weight: 600; }
+  .tab-inactive { border-bottom: 3px solid transparent; color: #95a57d; }
+  .card-shadow { box-shadow: 0 2px 12px rgba(52,61,46,0.08); }
+  .document-content { line-height: 1.8; }
+  .document-content p { margin-bottom: 1em; }
+  .highlight-action { background: #f9edda; border-left: 3px solid #d88a35; padding: 8px 12px; margin: 8px 0; border-radius: 0 8px 8px 0; }
+  .glossary-term { border-bottom: 2px dotted #5f714d; cursor: help; position: relative; }
+  .simplification-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+  @media (max-width: 640px) { html { font-size: 16px; } }
+</style>
+</head>
+<body class="bg-sage-50 text-sage-900 min-h-screen">
+
+<!-- Global AI Tracking -->
+<script>
+window.aiTotalInputTokens = 0;
+window.aiTotalOutputTokens = 0;
+window.aiTotalTime = 0;
+window.aiTimeByAlias = {};
+</script>
+
+<div id="app">
+  <!-- Header -->
+  <header class="bg-white/90 backdrop-blur-sm sticky top-0 z-40 border-b border-sage-100">
+    <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-10 h-10 bg-sage-500 rounded-xl flex items-center justify-center text-white text-xl">🌿</div>
+        <div>
+          <h1 class="text-lg font-bold text-sage-800 leading-tight">Mindfulness Coach</h1>
+          <p class="text-xs text-sage-400 leading-tight">Your adaptive wellness companion</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="showSettings()" class="w-11 h-11 rounded-xl bg-sage-50 flex items-center justify-center text-sage-500 hover:bg-sage-100 transition" aria-label="Settings">⚙️</button>
+        <button onclick="showProfile()" class="w-11 h-11 rounded-xl bg-sage-50 flex items-center justify-center text-sage-500 hover:bg-sage-100 transition" aria-label="Profile">👤</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="bg-white border-b border-sage-100 sticky top-[60px] z-30">
+    <div class="max-w-2xl mx-auto px-4 flex">
+      <button onclick="switchTab('home')" id="tab-home" class="flex-1 py-3 text-center text-sm tab-active transition">🏠 Home</button>
+      <button onclick="switchTab('documents')" id="tab-documents" class="flex-1 py-3 text-center text-sm tab-inactive transition">📄 Documents</button>
+      <button onclick="switchTab('practice')" id="tab-practice" class="flex-1 py-3 text-center text-sm tab-inactive transition">🧘 Practice</button>
+      <button onclick="switchTab('progress')" id="tab-progress" class="flex-1 py-3 text-center text-sm tab-inactive transition">📊 Progress</button>
+    </div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="max-w-2xl mx-auto px-4 py-6 pb-24">
+    
+    <!-- HOME TAB -->
+    <div id="page-home" class="space-y-5 fade-in">
+      <!-- Greeting Card -->
+      <div id="greeting-card" class="bg-gradient-to-br from-sage-500 to-sage-700 rounded-2xl p-6 text-white card-shadow">
+        <p class="text-sage-200 text-sm" id="greeting-time">Good morning</p>
+        <h2 class="text-2xl font-bold serif mt-1" id="greeting-name">Welcome back!</h2>
+        <p class="text-sage-200 mt-2 text-sm" id="streak-text">Start your mindfulness journey today ✨</p>
+        <div class="mt-4 flex items-center gap-4">
+          <div class="text-center">
+            <div class="text-2xl font-bold" id="streak-count">0</div>
+            <div class="text-xs text-sage-200">Day Streak</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold" id="total-sessions">0</div>
+            <div class="text-xs text-sage-200">Sessions</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold" id="total-minutes">0</div>
+            <div class="text-xs text-sage-200">Minutes</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="space-y-3">
+        <h3 class="text-base font-semibold text-sage-700">Quick Actions</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="startQuickSession('breath')" class="bg-white rounded-2xl p-5 text-left card-shadow hover:shadow-md transition pulse-gentle min-h-[100px]">
+            <div class="text-3xl mb-2">🌬️</div>
+            <div class="font-semibold text-sage-800">Breathing</div>
+            <div class="text-xs text-sage-400 mt-1">3-5 min guided</div>
+          </button>
+          <button onclick="startQuickSession('body')" class="bg-white rounded-2xl p-5 text-left card-shadow hover:shadow-md transition min-h-[100px]">
+            <div class="text-3xl mb-2">🧘</div>
+            <div class="font-semibold text-sage-800">Body Scan</div>
+            <div class="text-xs text-sage-400 mt-1">5-10 min gentle</div>
+          </button>
+          <button onclick="startQuickSession('imagery')" class="bg-white rounded-2xl p-5 text-left card-shadow hover:shadow-md transition min-h-[100px]">
+            <div class="text-3xl mb-2">🌅</div>
+            <div class="font-semibold text-sage-800">Guided Imagery</div>
+            <div class="text-xs text-sage-400 mt-1">5-8 min peaceful</div>
+          </button>
+          <button onclick="switchTab('documents')" class="bg-white rounded-2xl p-5 text-left card-shadow hover:shadow-md transition min-h-[100px]">
+            <div class="text-3xl mb-2">📄</div>
+            <div class="font-semibold text-sage-800">Simplify Text</div>
+            <div class="text-xs text-sage-400 mt-1">Medical/Legal docs</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Today's Recommendation -->
+      <div id="recommendation-card" class="bg-warm-50 rounded-2xl p-5 border border-warm-200 card-shadow">
+        <div class="flex items-start gap-3">
+          <div class="text-3xl">💡</div>
+          <div>
+            <h3 class="font-semibold text-warm-800">Today's Recommendation</h3>
+            <p class="text-sm text-warm-600 mt-1" id="recommendation-text">Loading your personalized suggestion...</p>
+            <button onclick="startRecommended()" class="mt-3 bg-warm-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-warm-600 transition min-h-[44px]">
+              Try Now →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Sessions -->
+      <div>
+        <h3 class="text-base font-semibold text-sage-700 mb-3">Recent Sessions</h3>
+        <div id="recent-sessions" class="space-y-2">
+          <div class="bg-white rounded-xl p-4 text-center text-sage-400 text-sm card-shadow">
+            No sessions yet. Start your first practice above! 🌱
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOCUMENTS TAB -->
+    <div id="page-documents" class="space-y-5 fade-in hidden">
+      <div class="bg-white rounded-2xl p-5 card-shadow">
+        <h2 class="text-xl font-bold text-sage-800 serif">📄 Document Simplifier</h2>
+        <p class="text-sm text-sage-500 mt-1">Paste medical, legal, or financial text and get clear, easy-to-understand versions tailored to your needs.</p>
+      </div>
+
+      <!-- Input Area -->
+      <div class="bg-white rounded-2xl p-5 card-shadow space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-sage-700 mb-2">Paste your document text below:</label>
+          <textarea id="doc-input" rows="6" class="w-full border border-sage-200 rounded-xl p-4 text-base focus:ring-2 focus:ring-sage-300 focus:border-sage-400 outline-none resize-y" placeholder="Paste medical reports, prescription instructions, insurance documents, legal notices, or any complex text here..."></textarea>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-sage-600 mb-1">Reading Level</label>
+            <select id="reading-level" class="w-full border border-sage-200 rounded-xl p-3 text-sm bg-white min-h-[44px]">
+              <option value="simple">Simple (Grade 5)</option>
+              <option value="moderate" selected>Moderate (Grade 8)</option>
+              <option value="standard">Standard (Grade 10)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-sage-600 mb-1">Document Type</label>
+            <select id="doc-type" class="w-full border border-sage-200 rounded-xl p-3 text-sm bg-white min-h-[44px]">
+              <option value="medical">Medical</option>
+              <option value="legal">Legal</option>
+              <option value="financial">Financial</option>
+              <option value="insurance">Insurance</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-sage-600 mb-1">Font Size: <span id="font-size-label">18px</span></label>
+          <input type="range" id="font-size-slider" min="14" max="28" value="18" class="w-full" oninput="updateFontSize(this.value)">
+        </div>
+
+        <button onclick="simplifyDocument()" id="simplify-btn" class="w-full bg-sage-600 text-white py-4 rounded-xl font-semibold text-base hover:bg-sage-700 transition min-h-[52px] flex items-center justify-center gap-2">
+          ✨ Simplify Document
+        </button>
+      </div>
+
+      <!-- Loading State -->
+      <div id="doc-loading" class="hidden bg-white rounded-2xl p-8 card-shadow text-center">
+        <div class="breathing-circle inline-block w-16 h-16 bg-sage-200 rounded-full mb-4"></div>
+        <p class="text-sage-600 font-medium">Analyzing and simplifying your document...</p>
+        <p class="text-sage-400 text-sm mt-1">This may take a moment for best results.</p>
+      </div>
+
+      <!-- Results Area -->
+      <div id="doc-results" class="hidden space-y-4">
+        <!-- Summary -->
+        <div class="bg-calm-50 rounded-2xl p-5 border border-calm-200 card-shadow">
+          <h3 class="font-semibold text-calm-800 flex items-center gap-2">📋 Quick Summary</h3>
+          <p id="doc-summary" class="text-sm text-calm-700 mt-2 document-content"></p>
+        </div>
+
+        <!-- Key Actions -->
+        <div class="bg-warm-50 rounded-2xl p-5 border border-warm-200 card-shadow">
+          <h3 class="font-semibold text-warm-800 flex items-center gap-2">⚡ Key Actions You Should Take</h3>
+          <div id="doc-actions" class="mt-3 space-y-2"></div>
+        </div>
+
+        <!-- Simplified Version -->
+        <div class="bg-white rounded-2xl p-5 card-shadow">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-sage-800">📖 Simplified Version</h3>
+            <span class="simplification-badge bg-sage-100 text-sage-700" id="reading-badge">Grade 8</span>
+          </div>
+          <div id="doc-simplified" class="document-content text-sage-700"></div>
+        </div>
+
+        <!-- Glossary -->
+        <div class="bg-white rounded-2xl p-5 card-shadow">
+          <h3 class="font-semibold text-sage-800 mb-3">📚 Glossary of Terms</h3>
+          <div id="doc-glossary" class="space-y-2"></div>
+        </div>
+
+        <!-- Audio -->
+        <div class="bg-white rounded-2xl p-5 card-shadow">
+          <h3 class="font-semibold text-sage-800 mb-3">🔊 Listen to Summary</h3>
+          <button onclick="speakText()" id="speak-btn" class="w-full bg-calm-500 text-white py-3 rounded-xl font-medium hover:bg-calm-600 transition min-h-[48px] flex items-center justify-center gap-2">
+            🔊 Read Aloud
+          </button>
+          <div class="mt-3">
+            <label class="block text-xs text-sage-500 mb-1">Speech Speed</label>
+            <input type="range" id="speech-rate" min="0.5" max="1.5" step="0.1" value="0.8" class="w-full">
+          </div>
+        </div>
+
+        <!-- Clinician Notes -->
+        <div class="bg-sage-50 rounded-2xl p-5 border border-sage-200 card-shadow">
+          <h3 class="font-semibold text-sage-800 mb-3">🩺 Clinician Review Notes</h3>
+          <div id="doc-clinician" class="space-y-2 text-sm text-sage-600"></div>
+        </div>
+
+        <!-- Saved Documents -->
+        <button onclick="saveDocument()" class="w-full bg-white border-2 border-sage-300 text-sage-700 py-3 rounded-xl font-medium hover:bg-sage-50 transition min-h-[48px]">
+          💾 Save This Simplified Version
+        </button>
+      </div>
+
+      <!-- Saved Documents List -->
+      <div>
+        <h3 class="text-base font-semibold text-sage-700 mb-3">Saved Documents</h3>
+        <div id="saved-docs-list" class="space-y-2">
+          <div class="bg-white rounded-xl p-4 text-center text-sage-400 text-sm card-shadow">
+            No saved documents yet. Simplify a document above! 📝
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRACTICE TAB -->
+    <div id="page-practice" class="space-y-5 fade-in hidden">
+      <!-- Session Setup -->
+      <div id="session-setup" class="space-y-4">
+        <div class="bg-white rounded-2xl p-5 card-shadow">
+          <h2 class="text-xl font-bold text-sage-800 serif">🧘 Start a Practice Session</h2>
+          <p class="text-sm text-sage-500 mt-1">Choose your preferences and we'll adapt the session to you in real time.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 card-shadow space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-sage-700 mb-2">Technique</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="selectTechnique('breath')" id="tech-breath" class="py-3 px-2 rounded-xl text-center border-2 border-sage-500 bg-sage-50 text-sage-700 font-medium text-sm min-h-[52px]">🌬️ Breath</button>
+              <button onclick="selectTechnique('body')" id="tech-body" class="py-3 px-2 rounded-xl text-center border-2 border-sage-200 bg-white text-sage-600 font-medium text-sm min-h-[52px]">🧘 Body Scan</button>
+              <button onclick="selectTechnique('imagery')" id="tech-imagery" class="py-3 px-2 rounded-xl text-center border-2 border-sage-200 bg-white text-sage-600 font-medium text-sm min-h-[52px]">🌅 Imagery</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-sage-700 mb-2">Duration: <span id="duration-label">5</span> minutes</label>
+            <input type="range" id="duration-slider" min="2" max="20" value="5" class="w-full" oninput="document.getElementById('duration-label').textContent=this.value">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-sage-700 mb-2">How are you feeling right now?</label>
+            <div class="flex gap-2 justify-between">
+              <button onclick="selectMood('stressed')" class="flex-1 py-3 rounded-xl text-center bg-red-50 border border-red-200 text-sm min-h-[48px] mood-btn" data-mood="stressed">😰<br><span class="text-xs">Stressed</span></button>
+              <button onclick="selectMood('tired')" class="flex-1 py-3 rounded-xl text-center bg-blue-50 border border-blue-200 text-sm min-h-[48px] mood-btn" data-mood="tired">😴<br><span class="text-xs">Tired</span></button>
+              <button onclick="selectMood('restless')" class="flex-1 py-3 rounded-xl text-center bg-yellow-50 border border-yellow-200 text-sm min-h-[48px] mood-btn" data-mood="restless">🤔<br><span class="text-xs">Restless</span></button>
+              <button onclick="selectMood('calm')" class="flex-1 py-3 rounded-xl text-center bg-green-50 border border-green-200 text-sm min-h-[48px] mood-btn" data-mood="calm">😌<br><span class="text-xs">Calm</span></button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-sage-700 mb-2">Physical comfort level</label>
+            <div class="flex gap-2">
+              <button onclick="selectComfort('seated')" class="flex-1 py-3 rounded-xl text-center bg-sage-50 border-2 border-sage-400 text-sm min-h-[48px] comfort-btn font-medium" data-comfort="seated">🪑 Seated</button>
+              <button onclick="selectComfort('lying')" class="flex-1 py-3 rounded-xl text-center bg-white border border-sage-200 text-sm min-h-[48px] comfort-btn" data-comfort="lying">🛋️ Lying Down</button>
+              <button onclick="selectComfort('walking')" class="flex-1 py-3 rounded-xl text-center bg-white border border-sage-200 text-sm min-h-[48px] comfort-btn" data-comfort="walking">🚶 Walking</button>
+            </div>
+          </div>
+
+          <button onclick="beginSession()" class="w-full bg-sage-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-sage-700 transition min-h-[56px] pulse-gentle">
+            🧘 Begin Session
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Session -->
+      <div id="active-session" class="hidden space-y-4">
+        <div class="bg-gradient-to-br from-sage-600 to-sage-800 rounded-2xl p-6 text-white text-center card-shadow relative">
+          <button onclick="endSession()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition">✕</button>
+          
+          <div class="text-sm text-sage-200 mb-2" id="session-technique-label">Breathing Exercise</div>
+          
+          <!-- Breathing Animation -->
+          <div class="my-6 flex justify-center">
+            <div id="breathing-visual" class="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center breathing-circle">
+              <div class="w-20 h-20 rounded-full bg-white/30 flex items-center justify-center">
+                <span class="text-3xl" id="session-emoji">🌬️</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-4xl font-bold serif" id="session-timer">5:00</div>
+          <p class="text-sage-200 text-sm mt-1" id="session-phase">Get comfortable and ready...</p>
+          
+          <!-- Progress bar -->
+          <div class="mt-4 bg-white/20 rounded-full h-2 overflow-hidden">
+            <div id="session-progress" class="bg-white h-full rounded-full transition-all duration-1000" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Guidance Text -->
+        <div class="bg-white rounded-2xl p-5 card-shadow">
+          <p id="session-guidance" class="text-sage-700 serif text-center text-lg leading-relaxed">
+            Take a deep breath in... and slowly let it go.
+          </p>
+        </div>
+
+        <!-- Session Controls -->
+        <div class="flex gap-3">
+          <button onclick="pauseSession()" id="pause-btn" class="flex-1 bg-white border border-sage-200 py-3 rounded-xl font-medium text-sage-700 min-h-[48px] card-shadow">⏸️ Pause</button>
+          <button onclick="adjustPacing('slower')" class="flex-1 bg-white border border-sage-200 py-3 rounded-xl font-medium text-sage-700 min-h-[48px] card-shadow">🐢 Slower</button>
+          <button onclick="adjustPacing('faster')" class="flex-1 bg-white border border-sage-200 py-3 rounded-xl font-medium text-sage-700 min-h-[48px] card-shadow">🐇 Faster</button>
+        </div>
+      </div>
+
+      <!-- Session Complete -->
+      <div id="session-complete" class="hidden space-y-4 fade-in">
+        <div class="bg-gradient-to-br from-warm-400 to-warm-600 rounded-2xl p-6 text-white text-center card-shadow">
+          <div class="text-5xl mb-3">🎉</div>
+          <h2 class="text-2xl font-bold serif">Well Done!</h2>
+          <p class="text-warm-100 mt-2" id="complete-message">You completed your session.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 card-shadow">
+          <h3 class="font-semibold text-sage-800 mb-3">How do you feel now?</h3>
+          <div class="flex gap-2 justify-between">
+            <button onclick="rateSession('much_better')" class="flex-1 py-3 rounded-xl text-center bg-green-50 border border-green-200 text-sm min-h-[48px]">😊<br><span class="text-xs">Much Better</span></button>
+            <button onclick="rateSession('better')" class="flex-1 py-3 rounded-xl text-center bg-green-50 border border-green-200 text-sm min-h-[48px]">🙂<br><span class="text-xs">Better</span></button>
+            <button onclick="rateSession('same')" class="flex-1 py-3 rounded-xl text-center bg-gray-50 border border-gray-200 text-sm min-h-[48px]">😐<br><span class="text-xs">Same</span></button>
+            <button onclick="rateSession('worse')" class="flex-1 py-3 rounded-xl text-center bg-red-50 border border-red-200 text-sm min-h-[48px]">😞<br><span class="text-xs">Worse</span></button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 card-shadow" id="ai-reflection-card">
+          <h3 class="font-semibold text-sage-800 mb-2">🤖 Your Personalized Insight</h3>
+          <p id="ai-reflection" class="text-sage-600 text-sm">Generating your reflection...</p>
+        </div>
+
+        <button onclick="resetSession()" class="w-full bg-sage-600 text-white py-4 rounded-xl font-semibold text-base hover:bg-sage-700 transition min-h-[52px]">
+          Return Home 🏠
+        </button>
+      </div>
+    </div>
+
+    <!-- PROGRESS TAB -->
+    <div id="page-progress" class="space-y-5 fade-in hidden">
+      <div class="bg-white rounded-2xl p-5 card-shadow">
+        <h2 class="text-xl font-bold text-sage-800 serif">📊 Your Progress</h2>
+        <p class="text-sm text-sage-500 mt-1">Track your mindfulness journey over time.</p>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white rounded-2xl p-5 card-shadow text-center">
+          <div class="text-3xl font-bold text-sage-700" id="prog-streak">0</div>
+          <div class="text-xs text-sage-400 mt-1">Day Streak 🔥</div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 card-shadow text-center">
+          <div class="text-3xl font-bold text-sage-700" id="prog-total">0</div>
+          <div class="text-xs text-sage-400 mt-1">Total Sessions</div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 card-shadow text-center">
+          <div class="text-3xl font-bold text-sage-700" id="prog-minutes">0</div>
+          <div class="text-xs text-sage-400 mt-1">Total Minutes</div>
+        </div>
+        <div class="bg-white rounded-2xl p-5 card-shadow text-center">
+          <div class="text-3xl font-bold text-sage-700" id="prog-docs">0</div>
+          <div class="text-xs text-sage-400 mt-1">Docs Simplified</div>
+        </div>
+      </div>
+
+      <!-- Weekly Calendar -->
+      <div class="bg-white rounded-2xl p-5 card-shadow">
+        <h3 class="font-semibold text-sage-800 mb-3">This Week</h3>
+        <div id="weekly-calendar" class="flex justify-between gap-1"></div>
+      </div>
+
+      <!-- Micro Goals -->
+      <div class="bg-warm-50 rounded-2xl p-5 border border-warm-200 card-shadow">
+        <h3 class="font-semibold text-warm-800 mb-3">🎯 Current Micro-Goals</h3>
+        <div id="micro-goals" class="space-y-3"></div>
+      </div>
+
+      <!-- Session History -->
+      <div class="bg-white rounded-2xl p-5 card-shadow">
+        <h3 class="font-semibold text-sage-800 mb-3">Session History</h3>
+        <div id="session-history" class="space-y-2 max-h-[400px] overflow-y-auto"></div>
+      </div>
+
+      <!-- AI Insights -->
+      <div class="bg-calm-50 rounded-2xl p-5 border border-calm-200 card-shadow">
+        <h3 class="font-semibold text-calm-800 mb-2">🧠 AI Wellness Insights</h3>
+        <p id="ai-insights" class="text-sm text-calm-700">Complete a few sessions to receive personalized insights about your practice patterns.</p>
+        <button onclick="generateInsights()" class="mt-3 bg-calm-500 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-calm-600 transition min-h-[44px]">
+          Generate Insights ✨
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 space-y-4 fade-in">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold text-sage-800">⚙️ Settings</h2>
+        <button onclick="closeSettings()" class="w-10 h-10 rounded-full bg-sage-100 flex items-center justify-center min-h-[44px]">✕</button>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-sage-700 mb-2">Display Font Size</label>
+        <input type="range" id="global-font-size" min="14" max="28" value="18" class="w-full" oninput="setGlobalFontSize(this.value)">
+        <span class="text-xs text-sage-400" id="global-font-label">18px</span>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-sage-700 mb-2">Default Session Duration</label>
+        <select id="default-duration" class="w-full border border-sage-200 rounded-xl p-3 text-sm bg-white min-h-[44px]">
+          <option value="3">3 minutes</option>
+          <option value="5" selected>5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="15">15 minutes</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-sage-700 mb-2">Speech Rate</label>
+        <input type="range" id="default-speech-rate" min="0.5" max="1.5" step="0.1" value="0.8" class="w-full">
+        <span class="text-xs text-sage-400">Slower ← → Faster</span>
+      </div>
+      <div class="flex items-center justify-between py-2">
+        <span class="text-sm font-medium text-sage-700">Daily Reminders</span>
+        <button onclick="toggleReminder()" id="reminder-toggle" class="w-14 h-8 rounded-full bg-sage-200 relative transition">
+          <div class="w-6 h-6 bg-white rounded-full absolute top-1 left-1 transition shadow"></div>
+        </button>
+      </div>
+      <button onclick="clearAllData()" class="w-full border border-red-300 text-red-600 py-3 rounded-xl text-sm hover:bg-red-50 transition min-h-[44px]">
+        🗑️ Clear All Data
+      </button>
+      <button onclick="closeSettings()" class="w-full bg-sage-600 text-white py-3 rounded-xl font-medium hover:bg-sage-700 transition min-h-[48px]">
+        Done
+      </button>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div id="profile-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6 space-y-4 fade-in">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xl font-bold text-sage-800">👤 Your Profile</h2>
+        <button onclick="closeProfile()" class="w-10 h-10 rounded-full bg-sage-100 flex items-center justify-center min-h-[44px]">✕</button>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-sage-700 mb-2">Your Name</label>
+        <input type="text" id="profile-name" class="w-full border border-sage-200 rounded-xl p-3 text-base min-h-[44px]" placeholder="Enter your name">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-sage-700 mb-2">Preferred Reading Level</label>
+        <select id="profile-reading" class="w-full border border-sage-200 rounded-xl p-3 text-sm bg-white min-h-[44px]">
+          <option value="simple">Simple - I prefer very clear, short sentences</option>
+          <option value="moderate" selected>Moderate - I'm comfortable with some detail</option>
+          <option value="standard">Standard - I can handle complex text</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-sage-700 mb-2">Physical Considerations</label>
+        <div class="space-y-2">
+          <label class="flex items-center gap-3 min-h-[44px]">
+            <input type="checkbox" id="phys-back" class="w-5 h-5 rounded border-sage-300 text-sage-600">
+            <span class="text-sm">Back or joint discomfort</span>
+          </label>
+          <label class="flex items-center gap-3 min-h-[44px]">
+            <input type="checkbox" id="phys-breath" class="w-5 h-5 rounded border-sage-300 text-sage-600">
+            <span class="text-sm">Breathing difficulties</span>
+          </label>
+          <label class="flex items-center gap-3 min-h-[44px]">
+            <input type="checkbox" id="phys-vision" class="w-5 h-5 rounded border-sage-300 text-sage-600">
+            <span class="text-sm">Vision limitations</span>
+          </label>
+          <label class="flex items-center gap-3 min-h-[44px]">
+            <input type="checkbox" id="phys-hearing" class="w-5 h-5 rounded border-sage-300 text-sage-600">
+            <span class="text-sm">Hearing limitations</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-sage-700 mb-2">Meditation Experience</label>
+        <select id="profile-experience" class="w-full border border-sage-200 rounded-xl p-3 text-sm bg-white min-h-[44px]">
+          <option value="beginner" selected>Beginner - New to meditation</option>
+          <option value="some">Some experience - Practiced occasionally</option>
+          <option value="experienced">Experienced - Regular practitioner</option>
+        </select>
+      </div>
+      <button onclick="saveProfile()" class="w-full bg-sage-600 text-white py-3 rounded-xl font-medium hover:bg-sage-700 transition min-h-[48px]">
+        💾 Save Profile
+      </button>
+    </div>
+  </div>
+
+  <!-- Onboarding Modal -->
+  <div id="onboarding-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 fade-in text-center">
+      <div class="text-5xl">🌿</div>
+      <h2 class="text-2xl font-bold text-sage-800 serif">Welcome to Mindfulness Coach</h2>
+      <p class="text-sage-500">Your personalized companion for gentle, adaptive mindfulness practice and document clarity.</p>
+      <div class="bg-sage-50 rounded-xl p-4 text-left space-y-2">
+        <p class="text-sm text-sage-700">✅ <strong>Guided sessions</strong> that adapt to your pace</p>
+        <p class="text-sm text-sage-700">✅ <strong>Document simplifier</strong> for medical & legal texts</p>
+        <p class="text-sm text-sage-700">✅ <strong>Progress tracking</strong> with micro-goals</p>
+        <p class="text-sm text-sage-700">✅ <strong>AI insights</strong> personalized to you</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-sage-700 mb-2 text-left">What should we call you?</label>
+        <input type="text" id="onboard-name" class="w-full border border-sage-200 rounded-xl p-3 text-base min-h-[44px]" placeholder="Your first name">
+      </div>
+      <button onclick="completeOnboarding()" class="w-full bg-sage-600 text-white py-4 rounded-xl font-semibold text-base hover:bg-sage-700 transition min-h-[52px]">
+        Get Started 🌱
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-sage-800 text-white px-6 py-3 rounded-xl shadow-lg z-50 hidden transition-all text-sm">
+    <span id="toast-text"></span>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== STATE MANAGEMENT =====
+  const API_BASE = 'https://16504442930.work';
+  let state = {
+    profile: { name: '', readingLevel: 'moderate', experience: 'beginner', physical: {} },
+    sessions: [],
+    documents: [],
+    streak: 0,
+    lastSessionDate: null,
+    onboarded: false,
+    settings: { fontSize: 18, defaultDuration: 5, speechRate: 0.8, reminders: false },
+    currentSession: null,
+    currentDoc: null
+  };
+
+  // Load state from localStorage
+  function loadState() {
+    try {
+      const saved = localStorage.getItem('mindfulness_coach_state');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        state = { ...state, ...parsed };
+      }
+    } catch(e) { console.warn('Failed to load state:', e); }
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem('mindfulness_coach_state', JSON.stringify(state));
+    } catch(e) { console.warn('Failed to save state:', e); }
+  }
+
+  // ===== AI HELPER =====
+  async function callAI(alias, params, retries = 3) {
+    const startTime = Date.now();
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await fetch(`${API_BASE}/run_prompt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ alias, params })
+        });
+        if (!response.ok) {
+          const errText = await response.text();
+          if (i < retries - 1) { await new Promise(r => setTimeout(r, 1000 * (i+1))); continue; }
+          // Format error with AI
+          try {
+            const errResp = await fetch(`${API_BASE}/run_prompt`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                alias: 'genericAI',
+                params: { prompt: `Reformat this API error into a friendly, empowering message for a non-technical user. Include the full original error. Original error: ${errText}. Return JSON with key "message" as a string.` }
+              })
+            });
+            const errData = await errResp.json();
+            throw new Error(errData.message || errText);
+          } catch(e2) { throw new Error(`Something went wrong. Please try again. Details: ${errText}`); }
+        }
+        const data = await response.json();
+        const elapsed = Date.now() - startTime;
+        window.aiTotalTime += elapsed;
+        window.aiTimeByAlias[alias] = (window.aiTimeByAlias[alias] || 0) + elapsed;
+        if (data.input_tokens) window.aiTotalInputTokens += data.input_tokens;
+        if (data.output_tokens) window.aiTotalOutputTokens += data.output_tokens;
+        return data;
+      } catch(e) {
+        if (i < retries - 1) { await new Promise(r => setTimeout(r, 1000 * (i+1))); continue; }
+        throw e;
+      }
+    }
+  }
+
+  // ===== INITIALIZATION =====
+  loadState();
+
+  function init() {
+    if (!state.onboarded) {
+      document.getElementById('onboarding-modal').classList.remove('hidden');
+    }
+    updateGreeting();
+    updateStats();
+    updateRecentSessions();
+    updateWeeklyCalendar();
+    updateMicroGoals();
+    updateSessionHistory();
+    updateSavedDocs();
+    loadRecommendation();
+    applySettings();
+  }
+
+  function updateGreeting() {
+    const hour = new Date().getHours();
+    let greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    document.getElementById('greeting-time').textContent = greeting;
+    const name = state.profile.name || 'Friend';
+    document.getElementById('greeting-name').textContent = `Welcome back, ${name}! 🌿`;
+    
+    calculateStreak();
+    const s = state.streak;
+    document.getElementById('streak-text').textContent = s > 0 
+      ? `You're on a ${s}-day streak! Keep it up! ✨` 
+      : 'Start your mindfulness journey today ✨';
+  }
+
+  function calculateStreak() {
+    if (state.sessions.length === 0) { state.streak = 0; return; }
+    const today = new Date().toDateString();
+    const sorted = [...state.sessions].sort((a,b) => new Date(b.date) - new Date(a.date));
+    let streak = 0;
+    let checkDate = new Date();
+    
+    // Check if today or yesterday has a session
+    const todayHas = sorted.some(s => new Date(s.date).toDateString() === today);
+    if (!todayHas) {
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+    
+    for (let i = 0; i < 365; i++) {
+      const dateStr = checkDate.toDateString();
+      const hasSession = sorted.some(s => new Date(s.date).toDateString() === dateStr);
+      if (hasSession) { streak++; checkDate.setDate(checkDate.getDate() - 1); }
+      else break;
+    }
+    state.streak = streak;
+    saveState();
+  }
+
+  function updateStats() {
+    const totalSessions = state.sessions.length;
+    const totalMinutes = state.sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    document.getElementById('streak-count').textContent = state.streak;
+    document.getElementById('total-sessions').textContent = totalSessions;
+    document.getElementById('total-minutes').textContent = totalMinutes;
+    document.getElementById('prog-streak').textContent = state.streak;
+    document.getElementById('prog-total').textContent = totalSessions;
+    document.getElementById('prog-minutes').textContent = totalMinutes;
+    document.getElementById('prog-docs').textContent = state.documents.length;
+  }
+
+  function updateRecentSessions() {
+    const container = document.getElementById('recent-sessions');
+    const recent = state.sessions.slice(-3).reverse();
+    if (recent.length === 0) {
+      container.innerHTML = '<div class="bg-white rounded-xl p-4 text-center text-sage-400 text-sm card-shadow">No sessions yet. Start your first practice above! 🌱</div>';
+      return;
+    }
+    container.innerHTML = recent.map(s => {
+      const d = new Date(s.date);
+      const emoji = s.technique === 'breath' ? '🌬️' : s.technique === 'body' ? '🧘' : '🌅';
+      return `<div class="bg-white rounded-xl p-4 flex items-center gap-3 card-shadow">
+        <div class="text-2xl">${emoji}</div>
+        <div class="flex-1">
+          <div class="font-medium text-sage-800 text-sm">${capitalize(s.technique)} Session</div>
+          <div class="text-xs text-sage-400">${d.toLocaleDateString()} • ${s.duration} min</div>
+        </div>
+        ${s.rating ? `<div class="text-lg">${ratingEmoji(s.rating)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function ratingEmoji(r) {
+    return {much_better:'😊',better:'🙂',same:'😐',worse:'😞'}[r] || '';
+  }
+
+  function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+  // ===== TABS =====
+  window.switchTab = function(tab) {
+    ['home','documents','practice','progress'].forEach(t => {
+      document.getElementById(`page-${t}`).classList.toggle('hidden', t !== tab);
+      document.getElementById(`tab-${t}`).className = t === tab 
+        ? 'flex-1 py-3 text-center text-sm tab-active transition' 
+        : 'flex-1 py-3 text-center text-sm tab-inactive transition';
+    });
+    if (tab === 'progress') {
+      updateStats();
+      updateWeeklyCalendar();
+      updateMicroGoals();
+      updateSessionHistory();
+    }
+  };
+
+  // ===== ONBOARDING =====
+  window.completeOnboarding = function() {
+    const name = document.getElementById('onboard-name').value.trim() || 'Friend';
+    state.profile.name = name;
+    state.onboarded = true;
+    saveState();
+    document.getElementById('onboarding-modal').classList.add('hidden');
+    updateGreeting();
+    showToast(`Welcome, ${name}! 🌿 Let's begin your journey.`);
+  };
+
+  // ===== SETTINGS =====
+  window.showSettings = function() { document.getElementById('settings-modal').classList.remove('hidden'); applySettingsToUI(); };
+  window.closeSettings = function() { 
+    state.settings.defaultDuration = parseInt(document.getElementById('default-duration').value);
+    state.settings.speechRate = parseFloat(document.getElementById('default-speech-rate').value);
+    saveState();
+    document.getElementById('settings-modal').classList.add('hidden'); 
+  };
+  window.setGlobalFontSize = function(v) { 
+    document.getElementById('global-font-label').textContent = v + 'px';
+    state.settings.fontSize = parseInt(v);
+    document.documentElement.style.fontSize = v + 'px';
+    saveState();
+  };
+  window.toggleReminder = function() {
+    state.settings.reminders = !state.settings.reminders;
+    const btn = document.getElementById('reminder-toggle');
+    btn.className = state.settings.reminders 
+      ? 'w-14 h-8 rounded-full bg-sage-500 relative transition' 
+      : 'w-14 h-8 rounded-full bg-sage-200 relative transition';
+    btn.querySelector('div').style.left = state.settings.reminders ? '28px' : '4px';
+    saveState();
+  };
+  window.clearAllData = function() {
+    if (confirm('Are you sure you want to clear all your data? This cannot be undone.')) {
+      localStorage.removeItem('mindfulness_coach_state');
+      location.reload();
+    }
+  };
+  function applySettings() {
+    document.documentElement.style.fontSize = state.settings.fontSize + 'px';
+  }
+  function applySettingsToUI() {
+    document.getElementById('global-font-size').value = state.settings.fontSize;
+    document.getElementById('global-font-label').textContent = state.settings.fontSize + 'px';
+    document.getElementById('default-duration').value = state.settings.defaultDuration;
+    document.getElementById('default-speech-rate').value = state.settings.speechRate;
+    const btn = document.getElementById('reminder-toggle');
+    btn.className = state.settings.reminders 
+      ? 'w-14 h-8 rounded-full bg-sage-500 relative transition' 
+      : 'w-14 h-8 rounded-full bg-sage-200 relative transition';
+    btn.querySelector('div').style.left = state.settings.reminders ? '28px' : '4px';
+  }
+
+  // ===== PROFILE =====
+  window.showProfile = function() {
+    document.getElementById('profile-modal').classList.remove('hidden');
+    document.getElementById('profile-name').value = state.profile.name || '';
+    document.getElementById('profile-reading').value = state.profile.readingLevel || 'moderate';
+    document.getElementById('profile-experience').value = state.profile.experience || 'beginner';
+    document.getElementById('phys-back').checked = state.profile.physical?.back || false;
+    document.getElementById('phys-breath').checked = state.profile.physical?.breath || false;
+    document.getElementById('phys-vision').checked = state.profile.physical?.vision || false;
+    document.getElementById('phys-hearing').checked = state.profile.physical?.hearing || false;
+  };
+  window.closeProfile = function() { document.getElementById('profile-modal').classList.add('hidden'); };
+  window.saveProfile = function() {
+    state.profile.name = document.getElementById('profile-name').value.trim() || 'Friend';
+    state.profile.readingLevel = document.getElementById('profile-reading').value;
+    state.profile.experience = document.getElementById('profile-experience').value;
+    state.profile.physical = {
+      back: document.getElementById('phys-back').checked,
+      breath: document.getElementById('phys-breath').checked,
+      vision: document.getElementById('phys-vision').checked,
+      hearing: document.getElementById('phys-hearing').checked
+    };
+    saveState();
+    closeProfile();
+    updateGreeting();
+    showToast('Profile saved! 👍');
+  };
+
+  // ===== DOCUMENT SIMPLIFIER =====
+  window.updateFontSize = function(v) {
+    document.getElementById('font-size-label').textContent = v + 'px';
+  };
+
+  window.simplifyDocument = async function() {
+    const text = document.getElementById('doc-input').value.trim();
+    if (!text) { showToast('Please paste some text to simplify! 📝'); return; }
+    if (text.length < 20) { showToast('Please paste a longer text for best results. 📄'); return; }
+
+    const readingLevel = document.getElementById('reading-level').value;
+    const docType = document.getElementById('doc-type').value;
+    const btn = document.getElementById('simplify-btn');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<div class="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div> Simplifying...';
+    document.getElementById('doc-loading').classList.remove('hidden');
+    document.getElementById('doc-results').classList.add('hidden');
+
+    try {
+      const prompt = `You are an expert clinical text simplifier. Simplify the following ${docType} document for an adult reader (age 55+) at the "${readingLevel}" reading level.
+
+DOCUMENT TEXT:
+"""
+${text.substring(0, 4000)}
+"""
+
+INSTRUCTIONS:
+1. Create a brief summary (2-3 sentences)
+2. Extract key actions the reader should take (list of strings)
+3. Create a simplified version preserving all important ${docType} terms but using clearer language
+4. Create a glossary of technical terms with simple definitions
+5. Create clinician review notes showing what was changed and why
+
+Return EXACTLY this JSON structure:
+{
+  "summary": "string - 2-3 sentence summary",
+  "actions": ["string - action item 1", "string - action item 2"],
+  "simplified": "string - the full simplified text with paragraphs separated by newlines",
+  "glossary": [{"term": "string - technical term", "definition": "string - simple definition"}],
+  "clinician_notes": [{"original": "string - original phrase", "simplified_to": "string - what it was changed to", "justification": "string - why the change was made"}],
+  "reading_grade": "string - estimated grade level of simplified version e.g. 'Grade 5'"
+}`;
+
+      const result = await callAI('genericAI', { prompt });
+      
+      // Parse result
+      let data = result;
+      if (typeof result === 'string') { data = JSON.parse(result); }
+      // Handle nested structures
+      if (data.summary === undefined && data.response) { data = typeof data.response === 'string' ? JSON.parse(data.response) : data.response; }
+
+      state.currentDoc = data;
+      
+      // Render summary
+      document.getElementById('doc-summary').textContent = data.summary || 'Summary not available.';
+
+      // Render actions
+      const actionsEl = document.getElementById('doc-actions');
+      const actions = data.actions || [];
+      actionsEl.innerHTML = actions.map(a => `<div class="highlight-action text-sm text-warm-800">⚡ ${a}</div>`).join('');
+
+      // Render simplified text
+      const fontSize = document.getElementById('font-size-slider').value;
+      const simplifiedEl = document.getElementById('doc-simplified');
+      const simplifiedText = data.simplified || 'Simplified version not available.';
+      simplifiedEl.style.fontSize = fontSize + 'px';
+      simplifiedEl.innerHTML = simplifiedText.split('\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('');
+
+      // Render glossary
+      const glossaryEl = document.getElementById('doc-glossary');
+      const glossary = data.glossary || [];
+      glossaryEl.innerHTML = glossary.map(g => `
+        <div class="bg-sage-50 rounded-lg p-3">
+          <span class="font-semibold text-sage-800 text-sm">${g.term}</span>
+          <p class="text-xs text-sage-600 mt-1">${g.definition}</p>
+        </div>
+      `).join('');
+
+      // Render clinician notes
+      const clinicianEl = document.getElementById('doc-clinician');
+      const notes = data.clinician_notes || [];
+      clinicianEl.innerHTML = notes.map(n => `
+        <div class="bg-white rounded-lg p-3 border border-sage-200">
+          <div class="text-xs text-sage-400">Original:</div>
+          <div class="text-sm text-sage-700 italic">"${n.original}"</div>
+          <div class="text-xs text-sage-400 mt-1">Simplified to:</div>
+          <div class="text-sm text-sage-800 font-medium">"${n.simplified_to}"</div>
+          <div class="text-xs text-sage-500 mt-1">💡 ${n.justification}</div>
+        </div>
+      `).join('');
+
+      // Update badge
+      document.getElementById('reading-badge').textContent = data.reading_grade || 'Simplified';
+
+      document.getElementById('doc-loading').classList.add('hidden');
+      document.getElementById('doc-results').classList.remove('hidden');
+      showToast('Document simplified successfully! ✅');
+    } catch(e) {
+      console.error('Simplify error:', e);
+      document.getElementById('doc-loading').classList.add('hidden');
+      showToast('Error simplifying document. Please try again. ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '✨ Simplify Document';
+    }
+  };
+
+  window.speakText = function() {
+    if (!state.currentDoc) return;
+    const synth = window.speechSynthesis;
+    if (synth.speaking) { synth.cancel(); document.getElementById('speak-btn').innerHTML = '🔊 Read Aloud'; return; }
+    
+    const text = state.currentDoc.summary + '. ' + (state.currentDoc.actions || []).join('. ');
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = parseFloat(document.getElementById('speech-rate').value);
+    utterance.pitch = 1;
+    utterance.lang = 'en-US';
+    
+    // Try to find a good voice
+    const voices = synth.getVoices();
+    const preferred = voices.find(v => v.name.includes('Samantha') || v.name.includes('Google') || v.name.includes('English'));
+    if (preferred) utterance.voice = preferred;
+    
+    utterance.onstart = () => { document.getElementById('speak-btn').innerHTML = '⏹️ Stop Reading'; };
+    utterance.onend = () => { document.getElementById('speak-btn').innerHTML = '🔊 Read Aloud'; };
+    
+    synth.speak(utterance);
+  };
+
+  window.saveDocument = function() {
+    if (!state.currentDoc) return;
+    const doc = {
+      id: Date.now(),
+      date: new Date().toISOString(),
+      type: document.getElementById('doc-type').value,
+      summary: state.currentDoc.summary,
+      data: state.currentDoc
+    };
+    state.documents.push(doc);
+    saveState();
+    updateSavedDocs();
+    updateStats();
+    showToast('Document saved! 💾');
+  };
+
+  function updateSavedDocs() {
+    const container = document.getElementById('saved-docs-list');
+    if (state.documents.length === 0) {
+      container.innerHTML = '<div class="bg-white rounded-xl p-4 text-center text-sage-400 text-sm card-shadow">No saved documents yet. Simplify a document above! 📝</div>';
+      return;
+    }
+    container.innerHTML = state.documents.slice().reverse().map(d => {
+      const date = new Date(d.date);
+      const emoji = {medical:'🏥',legal:'⚖️',financial:'💰',insurance:'🛡️',other:'📄'}[d.type] || '📄';
+      return `<div class="bg-white rounded-xl p-4 card-shadow cursor-pointer hover:shadow-md transition" onclick="loadSavedDoc(${d.id})">
+        <div class="flex items-center gap-3">
+          <div class="text-2xl">${emoji}</div>
+          <div class="flex-1">
+            <div class="font-medium text-sage-800 text-sm">${capitalize(d.type)} Document</div>
+            <div class="text-xs text-sage-400">${date.toLocaleDateString()}</div>
+            <div class="text-xs text-sage-500 mt-1 line-clamp-1">${d.summary || ''}</div>
+          </div>
+          <button onclick="event.stopPropagation();deleteSavedDoc(${d.id})" class="text-red-400 hover:text-red-600 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.loadSavedDoc = function(id) {
+    const doc = state.documents.find(d => d.id === id);
+    if (!doc || !doc.data) return;
+    state.currentDoc = doc.data;
+    
+    document.getElementById('doc-summary').textContent = doc.data.summary || '';
+    document.getElementById('doc-actions').innerHTML = (doc.data.actions || []).map(a => `<div class="highlight-action text-sm text-warm-800">⚡ ${a}</div>`).join('');
+    document.getElementById('doc-simplified').innerHTML = (doc.data.simplified || '').split('\n').filter(p => p.trim()).map(p => `<p>${p}</p>`).join('');
+    document.getElementById('doc-glossary').innerHTML = (doc.data.glossary || []).map(g => `
+      <div class="bg-sage-50 rounded-lg p-3">
+        <span class="font-semibold text-sage-800 text-sm">${g.term}</span>
+        <p class="text-xs text-sage-600 mt-1">${g.definition}</p>
+      </div>
+    `).join('');
+    document.getElementById('doc-clinician').innerHTML = (doc.data.clinician_notes || []).map(n => `
+      <div class="bg-white rounded-lg p-3 border border-sage-200">
+        <div class="text-xs text-sage-400">Original:</div>
+        <div class="text-sm text-sage-700 italic">"${n.original}"</div>
+        <div class="text-xs text-sage-400 mt-1">Simplified to:</div>
+        <div class="text-sm text-sage-800 font-medium">"${n.simplified_to}"</div>
+        <div class="text-xs text-sage-500 mt-1">💡 ${n.justification}</div>
+      </div>
+    `).join('');
+    document.getElementById('reading-badge').textContent = doc.data.reading_grade || 'Simplified';
+    document.getElementById('doc-results').classList.remove('hidden');
+    document.getElementById('doc-results').scrollIntoView({behavior:'smooth'});
+  };
+
+  window.deleteSavedDoc = function(id) {
+    state.documents = state.documents.filter(d => d.id !== id);
+    saveState();
+    updateSavedDocs();
+    updateStats();
+    showToast('Document deleted.');
+  };
+
+  // ===== MINDFULNESS SESSIONS =====
+  let selectedTechnique = 'breath';
+  let selectedMood = null;
+  let selectedComfort = 'seated';
+  let sessionTimer = null;
+  let sessionPaused = false;
+  let sessionStartTime = null;
+  let sessionTotalSeconds = 0;
+  let sessionElapsed = 0;
+  let sessionGuidanceInterval = null;
+  let currentPacing = 1;
+
+  window.selectTechnique = function(tech) {
+    selectedTechnique = tech;
+    ['breath','body','imagery'].forEach(t => {
+      const el = document.getElementById(`tech-${t}`);
+      el.className = t === tech 
+        ? 'py-3 px-2 rounded-xl text-center border-2 border-sage-500 bg-sage-50 text-sage-700 font-medium text-sm min-h-[52px]'
+        : 'py-3 px-2 rounded-xl text-center border-2 border-sage-200 bg-white text-sage-600 font-medium text-sm min-h-[52px]';
+    });
+  };
+
+  window.selectMood = function(mood) {
+    selectedMood = mood;
+    document.querySelectorAll('.mood-btn').forEach(btn => {
+      btn.style.outline = btn.dataset.mood === mood ? '3px solid #5f714d' : 'none';
+    });
+  };
+
+  window.selectComfort = function(comfort) {
+    selectedComfort = comfort;
+    document.querySelectorAll('.comfort-btn').forEach(btn => {
+      const isActive = btn.dataset.comfort === comfort;
+      btn.className = `flex-1 py-3 rounded-xl text-center ${isActive ? 'bg-sage-50 border-2 border-sage-400 font-medium' : 'bg-white border border-sage-200'} text-sm min-h-[48px] comfort-btn`;
+    });
+  };
+
+  window.startQuickSession = function(tech) {
+    switchTab('practice');
+    selectTechnique(tech);
+    document.getElementById('duration-slider').value = state.settings.defaultDuration;
+    document.getElementById('duration-label').textContent = state.settings.defaultDuration;
+  };
+
+  const guidanceLibrary = {
+    breath: {
+      stressed: [
+        "Let's slow down together. Breathe in gently through your nose for 4 counts...",
+        "Now hold that breath softly... no strain, just a gentle pause...",
+        "Slowly release through your mouth... let tension flow away...",
+        "Notice how your shoulders can soften a little more with each breath...",
+        "Imagine each exhale carrying away a small weight from your day...",
+        "You're doing wonderfully. Another gentle breath in...",
+        "Feel the cool air entering, warm air leaving... a natural rhythm...",
+        "Allow your jaw to unclench, your forehead to smooth...",
+        "Each breath is a gift of calm you're giving yourself...",
+        "Rest here in this moment. There's nowhere else to be."
+      ],
+      tired: [
+        "Let's begin with three easy breaths to gently wake your body...",
+        "Breathe in energy... breathe out heaviness...",
+        "Feel the gentle expansion of your chest... life flowing in...",
+        "With each breath, invite a small spark of alertness...",
+        "You don't need to change anything. Just notice the breath...",
+        "Feel the gentle rise and fall... a comforting wave...",
+        "Allow yourself to be both restful and present...",
+        "Each breath brings fresh oxygen to every cell...",
+        "Softly squeeze your hands and release... breathe...",
+        "You're gently refreshing your whole being."
+      ],
+      restless: [
+        "If your mind is busy, that's perfectly okay. Let's anchor to the breath...",
+        "Count with me: breathe in 1... 2... 3... 4...",
+        "Hold gently... 1... 2...",
+        "And out slowly... 1... 2... 3... 4... 5... 6...",
+        "When thoughts come, notice them like clouds passing, and return to counting...",
+        "The breath is always here as your anchor...",
+        "In... filling with stillness...",
+        "Out... releasing restlessness...",
+        "You're training your attention gently, like strengthening a muscle...",
+        "Each return to the breath is a small victory. Well done."
+      ],
+      calm: [
+        "You've already found a beautiful starting point of calm...",
+        "Let's deepen this with slow, nurturing breaths...",
+        "Breathe in peace... and let it settle through your whole body...",
+        "Feel the stillness between each breath... pure presence...",
+        "Allow this calm to expand with each cycle...",
+        "Your breath is gentle waves on a quiet shore...",
+        "Resting in this peace, you strengthen your inner resilience...",
+        "Notice the subtle pause at the top of each breath...",
+        "In this stillness, wisdom and clarity can emerge...",
+        "You are exactly where you need to be. Breathe."
+      ]
+    },
+    body: {
+      default: [
+        "Let's begin by noticing your feet. Feel them resting on the ground...",
+        "Gently scan your ankles and shins... any sensations there? Just notice...",
+        "Move your awareness to your knees... send them warmth and ease...",
+        "Now your thighs... let any tension melt downward with gravity...",
+        "Bring attention to your hips and lower back... soften here...",
+        "Feel your belly rise and fall... a rhythm of comfort...",
+        "Notice your chest area... your heart beating steadily, faithfully...",
+        "Relax your shoulders... let them drop away from your ears...",
+        "Scan through your arms, hands, fingers... release any holding...",
+        "Finally, your neck, jaw, and face... smooth and peaceful...",
+        "Your whole body is now bathed in gentle awareness...",
+        "Rest here, whole and calm."
+      ]
+    },
+    imagery: {
+      default: [
+        "Imagine yourself in a peaceful garden... sunlight filtering through leaves...",
+        "The air is warm and fragrant with flowers...",
+        "A gentle path winds before you, inviting you to explore...",
+        "With each step, you feel lighter, more free...",
+        "You come to a beautiful bench beside a still pond...",
+        "Sitting here, you watch the water mirror the sky...",
+        "A gentle breeze carries the sound of birdsong...",
+        "Everything here moves at nature's unhurried pace...",
+        "You feel deeply at home, deeply safe...",
+        "This peaceful place lives inside you, always available...",
+        "Take one more moment to absorb this tranquility...",
+        "Slowly bring this peace back with you as you return..."
+      ]
+    }
+  };
+
+  window.beginSession = function() {
+    const duration = parseInt(document.getElementById('duration-slider').value);
+    sessionTotalSeconds = duration * 60;
+    sessionElapsed = 0;
+    sessionPaused = false;
+    currentPacing = 1;
+
+    document.getElementById('session-setup').classList.add('hidden');
+    document.getElementById('active-session').classList.remove('hidden');
+    document.getElementById('session-complete').classList.add('hidden');
+
+    const techLabel = {breath:'Breathing Exercise',body:'Body Scan',imagery:'Guided Imagery'}[selectedTechnique];
+    const techEmoji = {breath:'🌬️',body:'🧘',imagery:'🌅'}[selectedTechnique];
+    document.getElementById('session-technique-label').textContent = techLabel;
+    document.getElementById('session-emoji').textContent = techEmoji;
+
+    sessionStartTime = Date.now();
+    updateSessionTimer();
+    
+    let guidanceIndex = 0;
+    const mood = selectedMood || 'calm';
+    let guidances;
+    if (selectedTechnique === 'breath') {
+      guidances = guidanceLibrary.breath[mood] || guidanceLibrary.breath.calm;
+    } else if (selectedTechnique === 'body') {
+      guidances = guidanceLibrary.body.default;
+    } else {
+      guidances = guidanceLibrary.imagery.default;
+    }
+
+    // Show first guidance immediately
+    document.getElementById('session-guidance').textContent = guidances[0];
+    document.getElementById('session-phase').textContent = 'Breathe naturally...';
+
+    // Cycle through guidance
+    const baseInterval = Math.max(8000, (sessionTotalSeconds * 1000) / guidances.length);
+    
+    function showNextGuidance() {
+      guidanceIndex++;
+      if (guidanceIndex < guidances.length) {
+        document.getElementById('session-guidance').textContent = guidances[guidanceIndex];
+        document.getElementById('session-guidance').classList.add('fade-in');
+        setTimeout(() => document.getElementById('session-guidance').classList.remove('fade-in'), 500);
+      }
+    }
+
+    sessionGuidanceInterval = setInterval(() => {
+      if (!sessionPaused) showNextGuidance();
+    }, baseInterval / currentPacing);
+
+    // Timer
+    sessionTimer = setInterval(() => {
+      if (!sessionPaused) {
+        sessionElapsed++;
+        updateSessionTimer();
+        
+        // Update progress
+        const pct = Math.min((sessionElapsed / sessionTotalSeconds) * 100, 100);
+        document.getElementById('session-progress').style.width = pct + '%';
+
+        // Update phase text
+        const pctDone = sessionElapsed / sessionTotalSeconds;
+        if (pctDone < 0.1) document.getElementById('session-phase').textContent = 'Settling in...';
+        else if (pctDone < 0.4) document.getElementById('session-phase').textContent = 'Deepening your practice...';
+        else if (pctDone < 0.7) document.getElementById('session-phase').textContent = 'You\'re in the flow...';
+        else if (pctDone < 0.9) document.getElementById('session-phase').textContent = 'Gently winding down...';
+        else document.getElementById('session-phase').textContent = 'Almost complete...';
+
+        if (sessionElapsed >= sessionTotalSeconds) {
+          completeSession();
+        }
+      }
+    }, 1000);
+  };
+
+  function updateSessionTimer() {
+    const remaining = Math.max(0, sessionTotalSeconds - sessionElapsed);
+    const min = Math.floor(remaining / 60);
+    const sec = remaining % 60;
+    document.getElementById('session-timer').textContent = `${min}:${sec.toString().padStart(2,'0')}`;
+  }
+
+  window.pauseSession = function() {
+    sessionPaused = !sessionPaused;
+    document.getElementById('pause-btn').innerHTML = sessionPaused ? '▶️ Resume' : '⏸️ Pause';
+    document.getElementById('session-phase').textContent = sessionPaused ? 'Paused - take your time ☕' : 'Continuing...';
+  };
+
+  window.adjustPacing = function(direction) {
+    if (direction === 'slower') currentPacing = Math.max(0.5, currentPacing - 0.25);
+    else currentPacing = Math.min(2, currentPacing + 0.25);
+    
+    // Restart guidance interval with new pacing
+    if (sessionGuidanceInterval) clearInterval(sessionGuidanceInterval);
+    const mood = selectedMood || 'calm';
+    let guidances;
+    if (selectedTechnique === 'breath') {
+      guidances = guidanceLibrary.breath[mood] || guidanceLibrary.breath.calm;
+    } else if (selectedTechnique === 'body') {
+      guidances = guidanceLibrary.body.default;
+    } else {
+      guidances = guidanceLibrary.imagery.default;
+    }
+    const baseInterval = Math.max(8000, (sessionTotalSeconds * 1000) / guidances.length);
+    let gIdx = Math.floor(sessionElapsed / (baseInterval / 1000 / currentPacing));
+    
+    sessionGuidanceInterval = setInterval(() => {
+      if (!sessionPaused) {
+        gIdx++;
+        if (gIdx < guidances.length) {
+          document.getElementById('session-guidance').textContent = guidances[gIdx];
+        }
+      }
+    }, baseInterval / currentPacing);
+    
+    showToast(direction === 'slower' ? '🐢 Slowing down...' : '🐇 Speeding up...');
+  };
+
+  window.endSession = function() {
+    if (confirm('End this session early?')) {
+      completeSession();
+    }
+  };
+
+  function completeSession() {
+    if (sessionTimer) clearInterval(sessionTimer);
+    if (sessionGuidanceInterval) clearInterval(sessionGuidanceInterval);
+    
+    const actualMinutes = Math.max(1, Math.round(sessionElapsed / 60));
+    
+    state.currentSession = {
+      technique: selectedTechnique,
+      duration: actualMinutes,
+      mood: selectedMood,
+      comfort: selectedComfort,
+      date: new Date().toISOString(),
+      pacing: currentPacing
+    };
+
+    document.getElementById('active-session').classList.add('hidden');
+    document.getElementById('session-complete').classList.remove('hidden');
+    document.getElementById('complete-message').textContent = `You practiced ${capitalize(selectedTechnique)} for ${actualMinutes} minutes. 🌿`;
+
+    // Generate AI reflection
+    generateReflection(state.currentSession);
+  }
+
+  async function generateReflection(session) {
+    try {
+      const prompt = `You are a warm, encouraging mindfulness coach for adults 55+. A user just completed a ${session.technique} meditation session lasting ${session.duration} minutes. Their mood was "${session.mood || 'unknown'}" and they were ${session.comfort}. Their pacing preference was ${session.pacing > 1 ? 'faster' : session.pacing < 1 ? 'slower' : 'normal'}.
+
+Write a brief (2-3 sentences), warm, personalized reflection. Acknowledge their effort. Give one gentle suggestion for next time. Be encouraging but not condescending.
+
+Return JSON with exactly this structure:
+{
+  "reflection": "string - the warm personalized reflection text",
+  "suggestion": "string - a brief suggestion for their next session"
+}`;
+
+      const result = await callAI('genericAI', { prompt });
+      let data = result;
+      if (data.reflection === undefined && data.response) data = typeof data.response === 'string' ? JSON.parse(data.response) : data.response;
+      
+      document.getElementById('ai-reflection').innerHTML = `
+        <p class="mb-2">${data.reflection || 'Great work completing your session!'}</p>
+        <p class="text-sage-500 italic">💡 ${data.suggestion || 'Try again tomorrow at the same time to build a habit.'}</p>
+      `;
+    } catch(e) {
+      document.getElementById('ai-reflection').textContent = `Wonderful job completing your ${session.duration}-minute session! Each moment of practice strengthens your wellbeing. 🌿`;
+    }
+  }
+
+  window.rateSession = function(rating) {
+    if (!state.currentSession) return;
+    state.currentSession.rating = rating;
+    state.sessions.push(state.currentSession);
+    saveState();
+    updateStats();
+    updateRecentSessions();
+    updateSessionHistory();
+    showToast('Session saved! ' + ratingEmoji(rating));
+    
+    document.querySelectorAll('#session-complete button[onclick^="rateSession"]').forEach(btn => {
+      btn.style.opacity = '0.5';
+      btn.disabled = true;
+    });
+    event.target.closest('button').style.opacity = '1';
+    event.target.closest('button').style.outline = '3px solid #5f714d';
+  };
+
+  window.resetSession = function() {
+    state.currentSession = null;
+    document.getElementById('session-complete').classList.add('hidden');
+    document.getElementById('session-setup').classList.remove('hidden');
+    switchTab('home');
+  };
+
+  // ===== PROGRESS =====
+  function updateWeeklyCalendar() {
+    const container = document.getElementById('weekly-calendar');
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const today = new Date();
+    let html = '';
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toDateString();
+      const hasSession = state.sessions.some(s => new Date(s.date).toDateString() === dateStr);
+      const isToday = i === 0;
+      
+      html += `<div class="flex-1 text-center">
+        <div class="text-xs text-sage-400 mb-1">${days[date.getDay()]}</div>
+        <div class="w-10 h-10 mx-auto rounded-full flex items-center justify-center text-sm font-medium ${
+          hasSession ? 'bg-sage-500 text-white' : isToday ? 'bg-sage-100 text-sage-700 border-2 border-sage-400' : 'bg-sage-50 text-sage-400'
+        }">${date.getDate()}</div>
+        ${hasSession ? '<div class="text-xs mt-1">✅</div>' : '<div class="text-xs mt-1 text-transparent">.</div>'}
+      </div>`;
+    }
+    container.innerHTML = html;
+  }
+
+  function updateMicroGoals() {
+    const container = document.getElementById('micro-goals');
+    const totalSessions = state.sessions.length;
+    const streak = state.streak;
+    
+    const goals = [
+      { name: 'Complete first session', target: 1, current: Math.min(1, totalSessions), emoji: '🌱' },
+      { name: '3-day streak', target: 3, current: Math.min(3, streak), emoji: '🔥' },
+      { name: '5 total sessions', target: 5, current: Math.min(5, totalSessions), emoji: '⭐' },
+      { name: '7-day streak', target: 7, current: Math.min(7, streak), emoji: '🏆' },
+      { name: '20 total sessions', target: 20, current: Math.min(20, totalSessions), emoji: '🎯' },
+    ];
+
+    container.innerHTML = goals.map(g => {
+      const pct = Math.round((g.current / g.target) * 100);
+      const done = g.current >= g.target;
+      return `<div class="flex items-center gap-3">
+        <div class="text-xl">${done ? '✅' : g.emoji}</div>
+        <div class="flex-1">
+          <div class="flex justify-between text-sm">
+            <span class="${done ? 'line-through text-sage-400' : 'text-sage-800 font-medium'}">${g.name}</span>
+            <span class="text-xs text-sage-400">${g.current}/${g.target}</span>
+          </div>
+          <div class="bg-warm-100 rounded-full h-2 mt-1 overflow-hidden">
+            <div class="bg-warm-500 h-full rounded-full transition-all" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateSessionHistory() {
+    const container = document.getElementById('session-history');
+    if (state.sessions.length === 0) {
+      container.innerHTML = '<p class="text-sage-400 text-sm text-center py-4">No sessions yet. Start your first one! 🌱</p>';
+      return;
+    }
+    container.innerHTML = state.sessions.slice().reverse().slice(0, 20).map(s => {
+      const d = new Date(s.date);
+      const emoji = {breath:'🌬️',body:'🧘',imagery:'🌅'}[s.technique] || '🧘';
+      return `<div class="flex items-center gap-3 py-2 border-b border-sage-100 last:border-0">
+        <div class="text-xl">${emoji}</div>
+        <div class="flex-1">
+          <div class="text-sm font-medium text-sage-800">${capitalize(s.technique)}</div>
+          <div class="text-xs text-sage-400">${d.toLocaleDateString()} at ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} • ${s.duration} min</div>
+        </div>
+        ${s.rating ? `<div class="text-lg">${ratingEmoji(s.rating)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  window.generateInsights = async function() {
+    if (state.sessions.length < 2) {
+      showToast('Complete at least 2 sessions to get insights! 🧘');
+      return;
+    }
+
+    const insightsEl = document.getElementById('ai-insights');
+    insightsEl.textContent = 'Analyzing your practice patterns... ✨';
+
+    try {
+      const sessionSummary = state.sessions.slice(-10).map(s => ({
+        technique: s.technique,
+        duration: s.duration,
+        mood: s.mood,
+        rating: s.rating,
+        date: s.date
+      }));
+
+      const prompt = `You are a compassionate mindfulness wellness coach for adults 55+. Analyze these recent meditation sessions and provide personalized insights.
+
+Sessions: ${JSON.stringify(sessionSummary)}
+
+User profile: Name: ${state.profile.name}, Experience: ${state.profile.experience}, Physical considerations: ${JSON.stringify(state.profile.physical)}
+
+Provide warm, encouraging insights about their patterns, what's working well, and one gentle suggestion. Keep it brief (3-4 sentences). Be specific to their data.
+
+Return JSON:
+{
+  "insights": "string - the personalized insights paragraph",
+  "recommended_technique": "string - breath or body or imagery",
+  "recommended_duration": "number - suggested minutes for next session"
+}`;
+
+      const result = await callAI('genericAI', { prompt });
+      let data = result;
+      if (data.insights === undefined && data.response) data = typeof data.response === 'string' ? JSON.parse(data.response) : data.response;
+      
+      insightsEl.innerHTML = `
+        <p>${data.insights || 'Keep up your wonderful practice!'}</p>
+        <p class="mt-2 font-medium">💡 Try: ${capitalize(data.recommended_technique || 'breath')} for ${data.recommended_duration || 5} minutes</p>
+      `;
+    } catch(e) {
+      insightsEl.textContent = 'Unable to generate insights right now. Keep practicing and try again later! 🌿';
+    }
+  };
+
+  // ===== RECOMMENDATIONS =====
+  async function loadRecommendation() {
+    const recText = document.getElementById('recommendation-text');
+    
+    if (state.sessions.length === 0) {
+      recText.textContent = 'Start with a gentle 3-minute breathing exercise to begin your mindfulness journey. No experience needed! 🌱';
+      return;
+    }
+
+    try {
+      const recentTechniques = state.sessions.slice(-5).map(s => s.technique);
+      const recentRatings = state.sessions.slice(-5).map(s => s.rating).filter(Boolean);
+      const hour = new Date().getHours();
+      
+      const prompt = `You are a mindfulness coach for adults 55+. Based on recent techniques used: [${recentTechniques.join(',')}], recent mood ratings: [${recentRatings.join(',')}], and current time of day (${hour}:00), suggest ONE brief daily practice recommendation in 1-2 sentences. Be warm and specific.
+
+Return JSON:
+{
+  "recommendation": "string - the 1-2 sentence recommendation",
+  "technique": "string - breath or body or imagery"
+}`;
+
+      const result = await callAI('genericAI', { prompt });
+      let data = result;
+      if (data.recommendation === undefined && data.response) data = typeof data.response === 'string' ? JSON.parse(data.response) : data.response;
+      
+      recText.textContent = data.recommendation || 'Try a gentle breathing session to center your day. 🌬️';
+      window._recommendedTechnique = data.technique || 'breath';
+    } catch(e) {
+      recText.textContent = 'A short breathing exercise can bring calm to your day. Give it a try! 🌬️';
+      window._recommendedTechnique = 'breath';
+    }
+  }
+
+  window.startRecommended = function() {
+    const tech = window._recommendedTechnique || 'breath';
+    switchTab('practice');
+    selectTechnique(tech);
+  };
+
+  // ===== TOAST =====
+  function showToast(message) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-text').textContent = message;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 3000);
+  }
+  window.showToast = showToast;
+
+  // Init on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Load speech synthesis voices
+  if (window.speechSynthesis) {
+    speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  }
+
+})();
+</script>
+</body>
+</html>
